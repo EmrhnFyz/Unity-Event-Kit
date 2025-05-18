@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace UnityEventKit
 {
@@ -39,10 +41,12 @@ namespace UnityEventKit
 		private static readonly Lazy<EventBus> _global = new(() => new EventBus());
 		public static EventBus Global => _global.Value;
 
-		private readonly Dictionary<Type, Delegate> _routes = new();
-
+		private readonly Dictionary<Type, ISubscriberList> _routes = new();
+		private readonly ConcurrentQueue<(Type, object)> _queue = new();
+		
 		#region IEventBus Implementation
 
+		#region  Subscribe
 		public SubscriptionToken Subscribe<T>(Action<T> handler) where T : struct, IEvent
 		{
 			if (handler is null)
@@ -51,41 +55,62 @@ namespace UnityEventKit
 			}
 			
 			var type = typeof(T);
-			_routes.TryGetValue(type, out var existingDelegate);
-
-			_routes[type] = (existingDelegate as Action<T>) + handler;
+			if (!_routes.TryGetValue(type, out var list))
+			{
+				list = new SubscriberList<T>();
+				_routes[type] = list;
+			}
+			
+			list.Add(handler);
 			
 			return new SubscriptionToken(this, type, handler);
 		}
+		#endregion
 
+		#region Publish (Immediate)
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void Publish<T>(in T message) where T : struct, IEvent
 		{
-			if(_routes.TryGetValue(typeof(T), out var existingDelegate))
+			if(_routes.TryGetValue(typeof(T), out var list))
 			{
-				// Safe cast
-				((Action<T>)existingDelegate)?.Invoke(message);
+				((SubscriberList<T>)list).Invoke(message);
 			}
 		}
+		#endregion
+
+		#region PublishQueued / DrainQueued
+		public void PublishQueued<T>(in T message) where T : struct, IEvent
+		{
+			_queue.Enqueue((typeof(T), message));
+		}
+
+		public void DrainQueued()
+		{
+			while (_queue.TryDequeue(out var item))
+			{
+				if (_routes.TryGetValue(item.Item1, out var list))
+				{
+					list.InvokeBoxed(item.Item2);
+				}
+			}
+		}
+		#endregion
+	
 
 		void IEventBus.UnsubscribeInternal(Type eventType, Delegate handler)
 		{
-			if (!_routes.TryGetValue(eventType, out var existingDelegate))
+			if (!_routes.TryGetValue(eventType, out var list))
 			{
 				return;
 			}
 			
-			var newDelegate = Delegate.Remove(existingDelegate, handler);
-
-			if (newDelegate is null)
+			list.Remove(handler);
+			
+			if (list.Count == 0)
 			{
 				_routes.Remove(eventType);
 			}
-			else
-			{
-				_routes[eventType] = newDelegate;
-			}
 		}
-
 		#endregion
 	}
 }
