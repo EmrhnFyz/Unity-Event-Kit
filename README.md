@@ -53,18 +53,19 @@ Unity Event Kit provides:
 
 ### Installation
 
-1. **Clone** this repository (or add as a submodule):
-   ```bash
-   git clone https://github.com/EmrhnFyz/UnityEventKit.git
-   ```
-2. **Import** the folder into your Unity Project `Packages/` or `Assets/*`
+You have two easy options to get up and running:
 
+**Import the UnityPackage**
+   - **Download** the latest `UnityEventKit.unitypackage` from the [Releases](https://github.com/EmrhnFyz/Unity-Event-Kit/releases) page.
+   - In Unity, go to **Assets ▶ Import Package ▶ Custom Package…**, select the downloaded package, and click **Import**.
+
+Once imported, you’ll find the **UnityEventKit** folder under **Packages** (or **Assets**, for the `.unitypackage` method), ready to use.
 ### Folder & Assembly Layout
 ```
 UnityEventKit/
  ├─ Runtime/
  │   ├─ EventBus/           ← core IEventBus & EventBus
- │   ├─ EventChannel/       ← ScriptableObject channels
+ │   ├─ EventChannel/       ← ScriptableObject channels 
  │   ├─ EventListener/      ← MonoBehaviour listeners
  │   ├─ Debug/              ← runtime history recorder
  │   └─ Interfaces/         ← IEvent, IEventBus, IEventChannel
